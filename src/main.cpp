@@ -4,10 +4,6 @@
 #include <algorithm>
 #include <vector>
 
-// TODO:
-// 1. make sure user or computer cannot choose spots that are already chosen. make sure it retries if choice is already made
-// 2. add options for user to quit and restart game from any position where input is expected from stdin
-
 struct Coordinates 
 {
         int row;
@@ -33,6 +29,7 @@ class TicTacToe {
                 {
                         if (this->validate_coordinate_pair(coords.row, coords.col))
                         {
+                                // set the boards to the appropriate mark
                                 this->board[coords.row-1][coords.col-1] = symbol; 
 
                                 // remove elements from available spaces that have the coordinates of the point we are about to plot
@@ -49,7 +46,7 @@ class TicTacToe {
                                 }
                                 else
                                 {
-                                        std::cout << "No more possible moves! Game over!\n";
+                                        std::cout << "No more possible moves! Cat's game!\n";
                                 }
                                 return true;
                         }
@@ -190,11 +187,11 @@ class TicTacToe {
                         // get random values for row/col for the computer's turn
                         // these random values will be selected via the object's 'available' vector
                         struct Coordinates c = *this->choose_random_available();
-                        std::cout << "The computer chose: " << "Row: " << c.row << std::endl << "Column: " << c.col << std::endl;
+                        std::cout << "The computer chose: " << "Row: " << c.row << " Column: " << c.col << std::endl;
                         if (this->plot(c, this->computer_id))
                         {
                                 // assess victory
-                                if (this->turn_count++ >= 5 && this->check(this->computer_id))
+                                if (++this->turn_count >= 5 && this->check(this->computer_id))
                                 {
                                         std::cout << "The computer won! Better luck next time!\n";
                                         return true;
@@ -243,7 +240,7 @@ class TicTacToe {
                         if (this->plot( (Coordinates) {.row=row, .col=col}, this->player_id) )
                         {
                                 // assess if there is a winner
-                                if (this->turn_count++ >= 5 && this->check(this->player_id))
+                                if (++this->turn_count >= 5 && this->check(this->player_id))
                                 {
                                         std::cout << "You won! Nice job!\n";
                                         return true;
@@ -269,23 +266,29 @@ main(void)
         {
                 // generate computer choice based on stdin
                 victory = ttt.generate_player_choice();
-                if (victory)
+                while (victory)
                 {
-                        char resume;
+                        std::string resume;
                         std::cout << "Would you like to play again? (Y/n)\n";
                         std::cout << "=>";
                         std::cin >> resume;
 
-                        // reset state of board
-                        if (resume == 'Y' || resume == 'y')
+                        // reset state of board and start a new game
+                        if (resume == "Y" || resume == "y")
                         {
                                 ttt = ttt;
                                 ttt.start();
+                                victory = false;
                         }
-                        else if (resume == 'N' || resume == 'n')
+                        else if (resume == "N" || resume == "n")
                         {
                                 std::cout << "Goodbye!\n";
-                                break;
+                                return 0;
+                        }
+                        else
+                        {
+                                std::cout << "Sorry that isn't an option\n";
+                                std::cout << "Select 'Y' (yes) to play again or 'n' (no) to exit.\n";
                         }
                 }
 
