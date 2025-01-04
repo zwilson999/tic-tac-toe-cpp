@@ -2,6 +2,7 @@
 #include <limits>
 #include <random>
 #include <algorithm>
+#include <string>
 #include <vector>
 
 struct Coordinates 
@@ -17,6 +18,7 @@ class TicTacToe {
                 char player_id;
                 char computer_id;
                 int turn_count;
+                bool resume;
                 
                 bool
                 validate_coordinate_pair(int row, int col)
@@ -27,15 +29,12 @@ class TicTacToe {
                 bool
                 plot(struct Coordinates coords, char symbol)
                 {
-                        if (this->validate_coordinate_pair(coords.row, coords.col))
+                        if (!this->available.empty())
                         {
-                                // set the boards to the appropriate mark
-                                this->board[coords.row-1][coords.col-1] = symbol; 
-
-                                // remove elements from available spaces that have the coordinates of the point we are about to plot
-                                // see erase-remove idiom online for more
-                                if (this->available.size() > 0)
+                                if (this->validate_coordinate_pair(coords.row, coords.col))
                                 {
+                                        // remove elements from available spaces that have the coordinates of the point we are about to plot
+                                        // see erase-remove idiom online for more
                                         this->available.erase(
                                                 std::remove_if(
                                                         this->available.begin(), 
@@ -43,14 +42,18 @@ class TicTacToe {
                                                         [&](const Coordinates& c) { return c.row == coords.row && c.col == coords.col; }
                                                 )
                                         );
+
+                                        // set the board space to the appropriate mark
+                                        this->board[coords.row-1][coords.col-1] = symbol; 
+                                        return true;
                                 }
-                                else
-                                {
-                                        std::cout << "No more possible moves! Cat's game!\n";
-                                }
-                                return true;
+                                return false;
                         }
-                        return false;
+                        else
+                        {
+                                std::cout << "No more possible moves! Cat's game!\n";
+                                return false;
+                        }
                 }
                 
                 bool
@@ -83,6 +86,68 @@ class TicTacToe {
                         else
                                 return false;
                 }
+
+                void
+                print_available()
+                {
+                        std::cout << "available spaces" << std::endl;
+                        for (const auto &c: this->available)
+                        {
+                                std::cout << "Row: " << c.row << " Col: " << c.col << std::endl;
+                        }
+                }
+
+                std::vector<Coordinates>::iterator 
+                choose_random_available()
+                {
+                        // init random choice by randomly choosing value from our
+                        // available spaces vector
+                        static std::random_device rd;
+                        static std::mt19937 gen(rd());
+
+                        // create iterators for our available indices to choose from
+                        std::vector<Coordinates>::iterator start = this->available.begin();
+
+                        // create uniform distribution based on size of our available vector
+                        std::uniform_int_distribution<> distrib(0, std::distance(start, this->available.end())-1);
+                        std::advance(start, distrib(gen)); // advance the start iterator by a random amount
+                        return start;
+                }
+
+                void
+                restart()
+                {
+                        while (1)
+                        {
+                                std::string play_again;
+                                std::cout << "Would you like to play again? (Y/n)\n";
+                                std::cout << "=>";
+                                std::cin >> play_again;
+
+                                // convert to lowercase
+                                std::transform(play_again.begin(), play_again.end(), play_again.begin(), ::tolower);
+
+                                if (play_again == "y")
+                                {
+                                        // reset state and start anew
+                                        *this = TicTacToe();
+                                        this->start();
+                                        break;
+                                }
+                                else if (play_again == "n")
+                                {
+                                        std::cout << "Goodbye!\n";
+                                        this->resume = false;
+                                        break;
+                                }
+                                else
+                                {
+                                        std::cout << "Sorry that isn't an option\n";
+                                        std::cout << "Select 'Y' (yes) to play again or 'n' (no) to exit.\n";
+                                }
+                        }
+                }
+
         public:
                 TicTacToe() 
                 {
@@ -92,6 +157,7 @@ class TicTacToe {
                                 {'_', '_', '_'}
                         };
                         this->turn_count = 0;
+                        this->resume = true;
 
                         // all spaces start out as available
                         for (int i = 0; i < 3; ++i)
@@ -104,10 +170,7 @@ class TicTacToe {
                         }
                 }
 
-                ~TicTacToe()
-                {
-                        std::cout << "Game over! See you next time!\n";
-                }
+                // ~TicTacToe() {}
 
                 void
                 start()
@@ -164,47 +227,41 @@ class TicTacToe {
                         std::cout << "=================\n";  
                 }
 
-                std::vector<Coordinates>::iterator 
-                choose_random_available()
-                {
-                        // init random choice by randomly choosing value from our
-                        // available spaces vector
-                        static std::random_device rd;
-                        static std::mt19937 gen(rd());
-
-                        // create iterators for our available indices to choose from
-                        std::vector<Coordinates>::iterator start = this->available.begin();
-
-                        // create uniform distribution based on size of our available vector
-                        std::uniform_int_distribution<> distrib(0, std::distance(start, this->available.end())-1);
-                        std::advance(start, distrib(gen)); // advance the start iterator by a random amount
-                        return start;
-                }
-
-                bool
+                void
                 generate_computer_choice()
                 {
+                        // computer player will randomly choose a space that is available to plot
+                        std::cout << "Now it's the computer's turn!\n";
+
                         // get random values for row/col for the computer's turn
                         // these random values will be selected via the object's 'available' vector
-                        struct Coordinates c = *this->choose_random_available();
-                        std::cout << "The computer chose: " << "Row: " << c.row << " Column: " << c.col << std::endl;
-                        if (this->plot(c, this->computer_id))
+                        if (!this->available.empty())
                         {
-                                // assess victory
-                                if (++this->turn_count >= 5 && this->check(this->computer_id))
+                                struct Coordinates c = *this->choose_random_available();
+                                std::cout << "The computer chose: " << "Row: " << c.row << " Column: " << c.col << std::endl;
+                                if (this->plot(c, this->computer_id))
                                 {
-                                        std::cout << "The computer won! Better luck next time!\n";
-                                        return true;
+                                        // assess victory
+                                        if (++this->turn_count >= 5 && this->check(this->computer_id))
+                                        {
+                                                this->print_board();
+                                                std::cout << "The computer won! Better luck next time!\n";
+                                                this->restart();
+                                        }
                                 }
-                                return false;
+                                else
+                                {
+                                        this->generate_computer_choice();
+                                }
                         }
                         else
                         {
-                                return this->generate_computer_choice();
+                                std::cout << "No more possible moves! Cat's game!\n";
+                                this->restart();
                         }
                 }
 
-                bool
+                void
                 generate_player_choice()
                 {
                         int row;
@@ -216,8 +273,7 @@ class TicTacToe {
                         {
                                 std::cout << "=>";
                                 std::cin >> row; 
-                                if (row >= 1 && row <= 3 && !std::cin.eof())
-                                        break;
+                                if (row >= 1 && row <= 3 && !std::cin.eof()) break;
                                 std::cout << "You chose row: " << row << std::endl;
                                 std::cout << "That isn't a valid choice." << std::endl; 
                                 std::cin.clear();
@@ -229,8 +285,7 @@ class TicTacToe {
                                 std::cout << "Choose a column (1, 2, 3 are valid columns): " << std::endl;
                                 std::cout << "=>";
                                 std::cin >> col;
-                                if (col >= 1 && col <= 3 && !std::cin.eof())
-                                        break;
+                                if (col >= 1 && col <= 3 && !std::cin.eof()) break;
                                 std::cout << "You chose column: " << col << std::endl;
                                 std::cout << "That isn't a valid choice." << std::endl; 
                                 std::cin.clear();
@@ -239,64 +294,37 @@ class TicTacToe {
 
                         if (this->plot( (Coordinates) {.row=row, .col=col}, this->player_id) )
                         {
-                                // assess if there is a winner
+                                // assess if player is winner
                                 if (++this->turn_count >= 5 && this->check(this->player_id))
                                 {
+                                        this->print_board();
                                         std::cout << "You won! Nice job!\n";
-                                        return true;
+                                        this->restart();
                                 }
-                                return false;
                         }
                         else
                         {
-                                return this->generate_player_choice();
+                                std::cout << "That row/column place is already occupied. Please choose another space to plot.\n";
+                                this->generate_player_choice();
                         }
+                }
+
+                bool
+                game_over()
+                {
+                        return !this->resume;
                 }
 };
 
 int
 main(void) 
 {
-        // init our Tic-tac Toe board
-        bool victory = false;
-        bool play = true;
         TicTacToe ttt;
         ttt.start();
-        while (play)
+        while (!ttt.game_over())
         {
-                // generate computer choice based on stdin
-                victory = ttt.generate_player_choice();
-                while (victory)
-                {
-                        std::string resume;
-                        std::cout << "Would you like to play again? (Y/n)\n";
-                        std::cout << "=>";
-                        std::cin >> resume;
-
-                        // reset state of board and start a new game
-                        if (resume == "Y" || resume == "y")
-                        {
-                                ttt = ttt;
-                                ttt.start();
-                                victory = false;
-                        }
-                        else if (resume == "N" || resume == "n")
-                        {
-                                std::cout << "Goodbye!\n";
-                                return 0;
-                        }
-                        else
-                        {
-                                std::cout << "Sorry that isn't an option\n";
-                                std::cout << "Select 'Y' (yes) to play again or 'n' (no) to exit.\n";
-                        }
-                }
-
-                // computer player will randomly choose a space that is available to plot
-                std::cout << "Now it's the computer's turn!\n";
-                victory = ttt.generate_computer_choice();
-
-                // show updated board state
+                ttt.generate_player_choice();
+                ttt.generate_computer_choice();
                 ttt.print_board();
         }
         return 0;
